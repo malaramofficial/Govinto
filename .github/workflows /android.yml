@@ -1,0 +1,46 @@
+name: Android CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Agar aapne secrets 'Calculator' environment mein dale hain toh ye line sahi hai
+    environment: Calculator 
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: temurin
+        cache: gradle
+
+    - name: Grant execute permission
+      run: chmod +x gradlew
+
+    # 🔐 Decode Keystore (Root directory mein 'release.jks' naam se banayega)
+    - name: Decode Keystore
+      run: |
+        echo "${{ secrets.KEYSTORE_FILE }}" | base64 -d > release.jks
+
+    # 🔥 Build Release APK
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
+      env:
+        # Ye names aapke build.gradle.kts ke System.getenv() se exact match hone chahiye
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+    # 📦 Upload APK
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-apk
+        path: app/build/outputs/apk/release/*.apk
+      
