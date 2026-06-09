@@ -27,11 +27,12 @@ jobs:
         echo "${{ secrets.KEYSTORE_FILE }}" | base64 -d > my-upload-key.jks
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease --no-daemon
+      run: ./gradlew clean assembleRelease --no-daemon
       env:
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        # ये नाम आपके build.gradle.kts के System.getenv() से मेल खाते हैं
+        STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        KEY_ALIAS: upload 
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
