@@ -1,0 +1,6 @@
+{
+  "name": "GoVinto",
+  "description": "A trusted marketplace to buy and sell pre-loved items in Hindi and English.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "560230132442",
+    "project_id": "govinto-2fc09",
+    "storage_bucket": "govinto-2fc09.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:560230132442:android:bca71984ef3e8d7745d3e3",
+        "android_client_info": {
+          "package_name": "com.aistudio.govinto.ufwzqd"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANQlY3WCW5aVrUGNakCiNdSMefWsHyEYs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
