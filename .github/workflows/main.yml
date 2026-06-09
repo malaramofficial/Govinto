@@ -20,9 +20,10 @@ jobs:
         distribution: temurin
         cache: gradle
 
-    - name: Grant execute permission
-      run: chmod +x gradlew
-
+- name: Decode Keystore
+  run: |
+    echo "${{ secrets.KEYSTORE_FILE }}" | base64 -d > my-upload-key.jks
+    
     # 🔐 Decode Keystore (Root directory mein 'release.jks' naam se banayega)
     - name: Decode Keystore
       run: |
