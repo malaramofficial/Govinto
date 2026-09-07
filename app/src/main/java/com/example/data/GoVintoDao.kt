@@ -32,6 +32,12 @@ interface GoVintoDao {
     @Query("DELETE FROM listings WHERE id = :id")
     suspend fun deleteListing(id: Int)
 
+    @Query("SELECT * FROM listings WHERE cloudId = :cloudId LIMIT 1")
+    suspend fun getListingByCloudId(cloudId: String): Listing?
+
+    @Query("DELETE FROM listings WHERE cloudId = :cloudId")
+    suspend fun deleteListingByCloudId(cloudId: String)
+
     @Query("SELECT * FROM chat_messages WHERE listingId = :listingId ORDER BY timestamp ASC")
     fun getChatMessages(listingId: Int): Flow<List<ChatMessage>>
 
