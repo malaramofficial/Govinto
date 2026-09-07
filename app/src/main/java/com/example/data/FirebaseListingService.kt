@@ -19,6 +19,8 @@ class FirebaseListingService {
         val doc = listingsCollection.document()
         var imageUrl = ""
 
+        // Upload the selected image first. If no image was selected, the listing
+        // can still be published without a photo.
         if (listing.customImageUri.isNotBlank()) {
             val localUri = Uri.parse(listing.customImageUri)
             val imageRef = storage.reference.child("listing_images/${user.uid}/${doc.id}.jpg")
