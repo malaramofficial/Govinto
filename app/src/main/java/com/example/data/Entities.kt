@@ -16,7 +16,7 @@ data class UserSession(
 @Entity(tableName = "listings")
 data class Listing(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val category: String, // "Clothes", "Electronics", "Furniture", "Books"
+    val category: String,
     val titleEn: String,
     val titleHi: String,
     val price: String,
@@ -27,16 +27,18 @@ data class Listing(
     val sellerRating: Float = 4.5f,
     val isSold: Boolean = false,
     val isUploadedByUser: Boolean = false,
-    val imageResName: String = "", // "denim", "keyboard", "table", "books"
-    val customImageUri: String = "", // For user uploaded custom photos path simulation
-    val createdAt: Long = System.currentTimeMillis()
+    val imageResName: String = "",
+    val customImageUri: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val cloudId: String = "",
+    val ownerUid: String = ""
 )
 
 @Entity(tableName = "chat_messages")
 data class ChatMessage(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val listingId: Int,
-    val sender: String, // "user" or "seller"
+    val sender: String,
     val messageText: String,
     val timestamp: Long = System.currentTimeMillis()
 )
