@@ -5,14 +5,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 
 class FirebaseListingService {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
-    private val storage = FirebaseStorage.getInstance()
     private val listingsCollection = firestore.collection("listings")
+    private val cloudinary = CloudinaryImageService()
 
     suspend fun publishListing(listing: Listing): Listing {
         val user = auth.currentUser ?: error("Google login required")
@@ -20,19 +19,7 @@ class FirebaseListingService {
         var imageUrl = ""
 
         if (listing.customImageUri.isNotBlank()) {
-            val localUri = Uri.parse(listing.customImageUri)
-            val imageRef = storage.reference.child("listing_images/${user.uid}/${doc.id}.jpg")
-
-            // Keep the upload and URL retrieval tied to the same StorageReference.
-            // Content type also makes the stored object unambiguous for Android clients.
-            val metadata = com.google.firebase.storage.StorageMetadata.Builder()
-                .setContentType("image/jpeg")
-                .build()
-            imageRef.putFile(localUri, metadata).await()
-
-            // Verify that the object exists before asking Storage for its download URL.
-            imageRef.metadata.await()
-            imageUrl = imageRef.downloadUrl.await().toString()
+            imageUrl = cloudinary.uploadImage(Uri.parse(listing.customImageUri), doc.id)
         }
 
         val data = hashMapOf<String, Any>(
@@ -70,9 +57,6 @@ class FirebaseListingService {
     suspend fun deleteListing(cloudId: String) {
         if (cloudId.isBlank()) return
         listingsCollection.document(cloudId).delete().await()
-        try {
-            storage.reference.child("listing_images/${auth.currentUser?.uid.orEmpty()}/$cloudId.jpg").delete().await()
-        } catch (_: Exception) { }
     }
 
     suspend fun updateSold(cloudId: String, sold: Boolean) {
