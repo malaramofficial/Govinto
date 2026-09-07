@@ -2,16 +2,42 @@ package com.example.data
 
 import kotlinx.coroutines.flow.Flow
 
-class GoVintoRepository(private val dao: GoVintoDao) {
+class GoVintoRepository(private val dao: GoVintoDao, private val firebase: FirebaseListingService = FirebaseListingService()) {
     val userSession: Flow<UserSession?> = dao.getUserSession()
     val allListings: Flow<List<Listing>> = dao.getAllListings()
 
     suspend fun saveUserSession(session: UserSession) = dao.insertUserSession(session)
+
     suspend fun insertListing(listing: Listing) = dao.insertListing(listing)
-    suspend fun deleteListing(id: Int) = dao.deleteListing(id)
+
+    suspend fun publishListing(listing: Listing): Listing {
+        val cloudListing = firebase.publishListing(listing)
+        dao.insertListing(cloudListing)
+        return cloudListing
+    }
+
+    suspend fun deleteListing(listing: Listing) {
+        if (listing.cloudId.isNotBlank()) firebase.deleteListing(listing.cloudId)
+        dao.deleteListing(listing.id)
+    }
+
+    suspend fun toggleSold(listing: Listing): Listing {
+        val newSold = !listing.isSold
+        if (listing.cloudId.isNotBlank()) firebase.updateSold(listing.cloudId, newSold)
+        val updated = listing.copy(isSold = newSold)
+        dao.insertListing(updated)
+        return updated
+    }
+
     fun getListingById(id: Int): Flow<Listing?> = dao.getListingById(id)
     fun getChatMessages(listingId: Int): Flow<List<ChatMessage>> = dao.getChatMessages(listingId)
     suspend fun insertChatMessage(message: ChatMessage) = dao.insertChatMessage(message)
+
+    suspend fun syncListingsFromCloud() {
+        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) return
+        val cloudListings = firebase.fetchListings()
+        cloudListings.forEach { dao.insertListing(it) }
+    }
 
     suspend fun prepopulateIfEmpty() {
         if (dao.getListingsCount() != 0) return
