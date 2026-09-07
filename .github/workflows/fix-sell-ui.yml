@@ -1,0 +1,139 @@
+name: Fix Sell UI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace ReadySell with working publish form
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('app/src/main/java/com/example/ui/ReadyMarketplace.kt')
+          s = p.read_text()
+          start = s.index('@Composable private fun ReadySell')
+          m = re.search(r'\n@Composable private fun ', s[start + 10:])
+          if not m:
+              raise SystemExit('Could not find end of ReadySell')
+          end = start + 10 + m.start() + 1
+          new = '''@Composable
+private fun ReadySell(vm: ReadyMarketplaceViewModel, hi: Boolean) {
+    val title by vm.sellTitle.collectAsState()
+    val price by vm.sellPrice.collectAsState()
+    val description by vm.sellDescription.collectAsState()
+    val category by vm.sellCategory.collectAsState()
+    val imageUri by vm.sellImageUri.collectAsState()
+    val error by vm.sellError.collectAsState()
+    val success by vm.sellSuccess.collectAsState()
+    val loading by vm.sellLoading.collectAsState()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) vm.sellImageUri.value = uri.toString()
+    }
+    val categories = listOf("Clothes", "Electronics", "Furniture", "Books")
+
+    Column(
+        Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp)
+    ) {
+        Text(if (hi) "सामान बेचें" else "Sell an item", fontSize = 28.sp, fontWeight = FontWeight.Black, color = TrustBlue700)
+        Text(if (hi) "अपना इस्तेमाल किया हुआ सामान दूसरे व्यक्ति तक पहुँचाएँ" else "Give your pre-loved item a second life", color = Slate600, fontSize = 13.sp)
+        Spacer(Modifier.height(18.dp))
+
+        OutlinedTextField(
+            value = title,
+            onValueChange = { vm.sellTitle.value = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(if (hi) "उत्पाद का नाम" else "Item title") },
+            singleLine = true,
+            enabled = !loading
+        )
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = price,
+            onValueChange = { vm.sellPrice.value = it.filter(Char::isDigit) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(if (hi) "कीमत (₹)" else "Price (₹)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            enabled = !loading
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Text(if (hi) "श्रेणी" else "Category", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+            items(categories) { c ->
+                FilterChip(selected = category == c, onClick = { if (!loading) vm.sellCategory.value = c }, label = { Text(categoryLabel(c, hi)) })
+            }
+        }
+
+        OutlinedTextField(
+            value = description,
+            onValueChange = { vm.sellDescription.value = it },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+            label = { Text(if (hi) "विवरण" else "Description") },
+            minLines = 4,
+            enabled = !loading
+        )
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = { launcher.launch("image/*") },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            enabled = !loading
+        ) {
+            Icon(Icons.Default.AddAPhoto, null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (imageUri.isBlank()) (if (hi) "फोटो चुनें" else "Choose photo") else (if (hi) "फोटो चुनी गई" else "Photo selected"))
+        }
+        if (imageUri.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            AsyncImage(model = imageUri, contentDescription = null, modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
+        }
+
+        if (error.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+        if (success.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(success, color = TrustBlue700, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Button(
+            onClick = { vm.postListing() },
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            if (loading) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp, color = Color.White)
+                Spacer(Modifier.width(10.dp))
+                Text(if (hi) "प्रकाशित हो रहा है…" else "Publishing…", fontWeight = FontWeight.Bold)
+            } else {
+                Icon(Icons.Default.CloudUpload, null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (hi) "लिस्टिंग प्रकाशित करें" else "Publish listing", fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+'''
+          p.write_text(s[:start] + new + s[end:])
+          PY
+      - name: Commit UI fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/example/ui/ReadyMarketplace.kt
+          git diff --cached --quiet || git commit -m 'Make listing publish button functional'
+          git push
