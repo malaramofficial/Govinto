@@ -33,7 +33,7 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
     private val _chatId = MutableStateFlow<Int?>(null)
     val chatId: StateFlow<Int?> = _chatId.asStateFlow()
     val chatListing: StateFlow<Listing?> = _chatId.flatMapLatest { id -> if (id == null) flowOf(null) else repository.getListingById(id) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-    val messages: StateFlow<List<ChatMessage>> = _chatId.flatMapLatest { id -> if (id == null) flowOf(emptyList()) else repository.getChatMessages(id) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val messages: StateFlow<List<ChatMessage>> = _chatId.flatMapLatest { id -> if (id == null) flowOf<List<ChatMessage>>(emptyList()) else repository.getChatMessages(id) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val typing: StateFlow<Boolean> = MutableStateFlow(false)
     val filteredListings: StateFlow<List<Listing>> = combine(listings, search, category) { all, q, cat -> all.filter { item -> (cat == "All" || item.category == cat) && (q.isBlank() || listOf(item.titleEn, item.titleHi, item.descEn, item.descHi).any { it.contains(q, true) }) } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -43,28 +43,85 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
     val sellCategory = MutableStateFlow("Clothes")
     val sellImageUri = MutableStateFlow("")
     val sellError = MutableStateFlow("")
+    val sellSuccess = MutableStateFlow("")
 
     init { viewModelScope.launch { repository.prepopulateIfEmpty() } }
+
     fun chooseLanguage(lang: String) = viewModelScope.launch { repository.saveUserSession(userSession.value.copy(selectedLanguage = lang)) }
+
     fun signIn(name: String, email: String) = viewModelScope.launch { repository.saveUserSession(userSession.value.copy(displayName = name.trim().ifBlank { "GoVinto User" }, email = email.trim(), isLoggedIn = true)) }
-    fun signOut() = viewModelScope.launch { try { com.google.firebase.auth.FirebaseAuth.getInstance().signOut() } catch (_: Exception) {}; repository.saveUserSession(UserSession()); _screen.value = "home"; _detailId.value = null; _chatId.value = null }
-    fun setScreen(value: String) { _screen.value = value; if (value != "home") _detailId.value = null; if (value != "messages") _chatId.value = null }
+
+    fun signOut() = viewModelScope.launch {
+        try { com.google.firebase.auth.FirebaseAuth.getInstance().signOut() } catch (_: Exception) {}
+        repository.saveUserSession(UserSession())
+        _screen.value = "home"
+        _detailId.value = null
+        _chatId.value = null
+    }
+
+    fun setScreen(value: String) {
+        _screen.value = value
+        if (value != "home") _detailId.value = null
+        if (value != "messages") _chatId.value = null
+        if (value == "sell") {
+            sellError.value = ""
+            sellSuccess.value = ""
+        }
+    }
+
     fun openDetail(id: Int) { _detailId.value = id }
     fun closeDetail() { _detailId.value = null }
     fun openChat(id: Int) { _chatId.value = id; _screen.value = "messages"; _detailId.value = null }
     fun closeChat() { _chatId.value = null }
-    fun sendMessage(text: String) { val id = _chatId.value ?: return; if (text.isBlank()) return; viewModelScope.launch { repository.insertChatMessage(ChatMessage(listingId = id, sender = "user", messageText = text.trim())) } }
+
+    fun sendMessage(text: String) {
+        val id = _chatId.value ?: return
+        if (text.isBlank()) return
+        viewModelScope.launch { repository.insertChatMessage(ChatMessage(listingId = id, sender = "user", messageText = text.trim())) }
+    }
+
     fun postListing() {
-        val title = sellTitle.value.trim(); val price = sellPrice.value.trim(); val desc = sellDescription.value.trim()
+        sellError.value = ""
+        sellSuccess.value = ""
+        val title = sellTitle.value.trim()
+        val price = sellPrice.value.trim()
+        val desc = sellDescription.value.trim()
         if (title.length < 3) { sellError.value = "कृपया सही उत्पाद नाम लिखें।"; return }
         if (price.toLongOrNull()?.let { it > 0 } != true) { sellError.value = "कृपया सही कीमत दर्ज करें।"; return }
         if (desc.length < 10) { sellError.value = "विवरण कम से कम 10 अक्षरों का रखें।"; return }
+
         viewModelScope.launch {
-            val name = userSession.value.displayName.ifBlank { "GoVinto User" }
-            repository.insertListing(Listing(category=sellCategory.value, titleEn=title, titleHi=title, price=price, descEn=desc, descHi=desc, sellerNameEn=name, sellerNameHi=name, sellerRating=5f, isUploadedByUser=true, customImageUri=sellImageUri.value))
-            sellTitle.value=""; sellPrice.value=""; sellDescription.value=""; sellImageUri.value=""; sellError.value=""; _screen.value="home"
+            try {
+                val name = userSession.value.displayName.trim().ifBlank { "GoVinto User" }
+                repository.insertListing(
+                    Listing(
+                        category = sellCategory.value,
+                        titleEn = title,
+                        titleHi = title,
+                        price = price,
+                        descEn = desc,
+                        descHi = desc,
+                        sellerNameEn = name,
+                        sellerNameHi = name,
+                        sellerRating = 5f,
+                        isUploadedByUser = true,
+                        customImageUri = sellImageUri.value,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+                sellTitle.value = ""
+                sellPrice.value = ""
+                sellDescription.value = ""
+                sellImageUri.value = ""
+                sellError.value = ""
+                sellSuccess.value = "लिस्टिंग सफलतापूर्वक प्रकाशित हो गई।"
+                _screen.value = "home"
+            } catch (e: Exception) {
+                sellError.value = "लिस्टिंग सेव नहीं हो सकी: ${e.message ?: "Database error"}"
+            }
         }
     }
+
     fun deleteListing(item: Listing) = viewModelScope.launch { repository.deleteListing(item.id) }
     fun toggleSold(item: Listing) = viewModelScope.launch { repository.insertListing(item.copy(isSold = !item.isSold)) }
 }
