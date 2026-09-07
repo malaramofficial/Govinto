@@ -19,12 +19,19 @@ class FirebaseListingService {
         val doc = listingsCollection.document()
         var imageUrl = ""
 
-        // Upload the selected image first. If no image was selected, the listing
-        // can still be published without a photo.
         if (listing.customImageUri.isNotBlank()) {
             val localUri = Uri.parse(listing.customImageUri)
             val imageRef = storage.reference.child("listing_images/${user.uid}/${doc.id}.jpg")
-            imageRef.putFile(localUri).await()
+
+            // Keep the upload and URL retrieval tied to the same StorageReference.
+            // Content type also makes the stored object unambiguous for Android clients.
+            val metadata = com.google.firebase.storage.StorageMetadata.Builder()
+                .setContentType("image/jpeg")
+                .build()
+            imageRef.putFile(localUri, metadata).await()
+
+            // Verify that the object exists before asking Storage for its download URL.
+            imageRef.metadata.await()
             imageUrl = imageRef.downloadUrl.await().toString()
         }
 
