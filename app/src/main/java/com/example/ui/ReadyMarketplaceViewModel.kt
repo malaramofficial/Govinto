@@ -48,11 +48,19 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
     val authError = MutableStateFlow("")
     val authLoading = MutableStateFlow(false)
 
-    init { viewModelScope.launch { repository.prepopulateIfEmpty() } }
+    init {
+        viewModelScope.launch {
+            repository.prepopulateIfEmpty()
+            try { repository.syncListingsFromCloud() } catch (_: Exception) { }
+        }
+    }
 
     fun chooseLanguage(lang: String) = viewModelScope.launch { repository.saveUserSession(userSession.value.copy(selectedLanguage = lang)) }
 
-    fun signIn(name: String, email: String) = viewModelScope.launch { repository.saveUserSession(userSession.value.copy(displayName = name.trim().ifBlank { "GoVinto User" }, email = email.trim(), isLoggedIn = true)) }
+    fun signIn(name: String, email: String) = viewModelScope.launch {
+        repository.saveUserSession(userSession.value.copy(displayName = name.trim().ifBlank { "GoVinto User" }, email = email.trim(), isLoggedIn = true))
+        try { repository.syncListingsFromCloud() } catch (_: Exception) { }
+    }
 
     fun signInWithGoogle(context: Context) {
         if (authLoading.value) return
@@ -67,10 +75,9 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
                     val photo = user.photoUrl?.toString().orEmpty()
                     viewModelScope.launch {
                         repository.saveUserSession(userSession.value.copy(displayName = name, email = email, photoUrl = photo, isLoggedIn = true))
+                        try { repository.syncListingsFromCloud() } catch (_: Exception) { }
                     }
-                }.onFailure { e ->
-                    authError.value = e.message ?: "Google sign-in failed"
-                }
+                }.onFailure { e -> authError.value = e.message ?: "Google sign-in failed" }
             } finally {
                 authLoading.value = false
             }
@@ -119,7 +126,7 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
         viewModelScope.launch {
             try {
                 val name = userSession.value.displayName.trim().ifBlank { "GoVinto User" }
-                repository.insertListing(
+                repository.publishListing(
                     Listing(
                         category = sellCategory.value,
                         titleEn = title,
@@ -140,16 +147,21 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
                 sellDescription.value = ""
                 sellImageUri.value = ""
                 sellError.value = ""
-                sellSuccess.value = "लिस्टिंग सफलतापूर्वक प्रकाशित हो गई।"
+                sellSuccess.value = "लिस्टिंग ऑनलाइन प्रकाशित हो गई।"
                 _screen.value = "home"
             } catch (e: Exception) {
-                sellError.value = "लिस्टिंग सेव नहीं हो सकी: ${e.message ?: "Database error"}"
+                sellError.value = "लिस्टिंग ऑनलाइन सेव नहीं हो सकी: ${e.message ?: "Network/Firebase error"}"
             }
         }
     }
 
-    fun deleteListing(item: Listing) = viewModelScope.launch { repository.deleteListing(item.id) }
-    fun toggleSold(item: Listing) = viewModelScope.launch { repository.insertListing(item.copy(isSold = !item.isSold)) }
+    fun deleteListing(item: Listing) = viewModelScope.launch {
+        try { repository.deleteListing(item) } catch (_: Exception) { }
+    }
+
+    fun toggleSold(item: Listing) = viewModelScope.launch {
+        try { repository.toggleSold(item) } catch (_: Exception) { }
+    }
 }
 
 class ReadyMarketplaceViewModelFactory(private val application: Application, private val repository: GoVintoRepository) : ViewModelProvider.Factory {
