@@ -1,26 +1,36 @@
 {
   "project_info": {
-    "project_number": "560230132442",
-    "project_id": "govinto-2fc09",
-    "storage_bucket": "govinto-2fc09.firebasestorage.app"
+    "project_number": "366008628364",
+    "project_id": "govinto-3b4ca",
+    "storage_bucket": "govinto-3b4ca.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:560230132442:android:bca71984ef3e8d7745d3e3",
+        "mobilesdk_app_id": "1:366008628364:android:c8e1154c9799234d76f7a9",
         "android_client_info": {
           "package_name": "com.aistudio.govinto.ufwzqd"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "366008628364-ql6pokelcgrb4pf8822c7qng5d7t76c2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyANQlY3WCW5aVrUGNakCiNdSMefWsHyEYs"
+          "current_key": "AIzaSyDjvceFrvOM3iG_cgieD8Jk0SAgjVJWMp4"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "366008628364-ql6pokelcgrb4pf8822c7qng5d7t76c2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
