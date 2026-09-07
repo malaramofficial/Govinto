@@ -2,6 +2,7 @@ package com.example.data
 
 import android.content.Context
 import android.net.Uri
+import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,12 +10,11 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
-import okhttp3.Response
 import okio.BufferedSink
 import org.json.JSONObject
 
 class CloudinaryImageService(
-    private val context: Context = AppContextHolder.context
+    private val context: Context = FirebaseApp.getInstance().applicationContext
 ) {
     companion object {
         private const val CLOUD_NAME = "dsnetrfzy"
@@ -53,14 +53,14 @@ class CloudinaryImageService(
         client.newCall(request).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                val message = runCatching { JSONObject(responseBody).optString("error") }.getOrNull()
+                val message = runCatching { JSONObject(responseBody).optJSONObject("error")?.optString("message") }
+                    .getOrNull()
                     ?.takeIf { it.isNotBlank() }
                     ?: response.message
                 throw IllegalStateException("Cloudinary upload failed (${response.code}): $message")
             }
 
-            val json = JSONObject(responseBody)
-            json.optString("secure_url")
+            JSONObject(responseBody).optString("secure_url")
                 .takeIf { it.isNotBlank() }
                 ?: throw IllegalStateException("Cloudinary returned no image URL")
         }
