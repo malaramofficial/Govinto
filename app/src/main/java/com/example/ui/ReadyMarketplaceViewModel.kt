@@ -45,6 +45,7 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
     val sellImageUri = MutableStateFlow("")
     val sellError = MutableStateFlow("")
     val sellSuccess = MutableStateFlow("")
+    val sellLoading = MutableStateFlow(false)
     val authError = MutableStateFlow("")
     val authLoading = MutableStateFlow(false)
 
@@ -114,6 +115,7 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
     }
 
     fun postListing() {
+        if (sellLoading.value) return
         sellError.value = ""
         sellSuccess.value = ""
         val title = sellTitle.value.trim()
@@ -123,6 +125,7 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
         if (price.toLongOrNull()?.let { it > 0 } != true) { sellError.value = "कृपया सही कीमत दर्ज करें।"; return }
         if (desc.length < 10) { sellError.value = "विवरण कम से कम 10 अक्षरों का रखें।"; return }
 
+        sellLoading.value = true
         viewModelScope.launch {
             try {
                 val name = userSession.value.displayName.trim().ifBlank { "GoVinto User" }
@@ -146,11 +149,12 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
                 sellPrice.value = ""
                 sellDescription.value = ""
                 sellImageUri.value = ""
-                sellError.value = ""
                 sellSuccess.value = "लिस्टिंग ऑनलाइन प्रकाशित हो गई।"
                 _screen.value = "home"
             } catch (e: Exception) {
                 sellError.value = "लिस्टिंग ऑनलाइन सेव नहीं हो सकी: ${e.message ?: "Network/Firebase error"}"
+            } finally {
+                sellLoading.value = false
             }
         }
     }
