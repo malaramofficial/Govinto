@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -44,12 +45,37 @@ class ReadyMarketplaceViewModel(application: Application, private val repository
     val sellImageUri = MutableStateFlow("")
     val sellError = MutableStateFlow("")
     val sellSuccess = MutableStateFlow("")
+    val authError = MutableStateFlow("")
+    val authLoading = MutableStateFlow(false)
 
     init { viewModelScope.launch { repository.prepopulateIfEmpty() } }
 
     fun chooseLanguage(lang: String) = viewModelScope.launch { repository.saveUserSession(userSession.value.copy(selectedLanguage = lang)) }
 
     fun signIn(name: String, email: String) = viewModelScope.launch { repository.saveUserSession(userSession.value.copy(displayName = name.trim().ifBlank { "GoVinto User" }, email = email.trim(), isLoggedIn = true)) }
+
+    fun signInWithGoogle(context: Context) {
+        if (authLoading.value) return
+        authError.value = ""
+        authLoading.value = true
+        viewModelScope.launch {
+            try {
+                val result = GoogleAuthHelper(context).signIn()
+                result.onSuccess { user ->
+                    val name = user.displayName?.trim().orEmpty().ifBlank { "GoVinto User" }
+                    val email = user.email.orEmpty()
+                    val photo = user.photoUrl?.toString().orEmpty()
+                    viewModelScope.launch {
+                        repository.saveUserSession(userSession.value.copy(displayName = name, email = email, photoUrl = photo, isLoggedIn = true))
+                    }
+                }.onFailure { e ->
+                    authError.value = e.message ?: "Google sign-in failed"
+                }
+            } finally {
+                authLoading.value = false
+            }
+        }
+    }
 
     fun signOut() = viewModelScope.launch {
         try { com.google.firebase.auth.FirebaseAuth.getInstance().signOut() } catch (_: Exception) {}
