@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.content.Context
+import android.util.Base64
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -11,9 +12,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.tasks.await
 import java.security.SecureRandom
-import android.util.Base64
 
-class GoogleAuthHelper(context: Context) {
+class GoogleAuthHelper(private val context: Context) {
     private val credentialManager = CredentialManager.create(context)
     private val auth = FirebaseAuth.getInstance()
 
