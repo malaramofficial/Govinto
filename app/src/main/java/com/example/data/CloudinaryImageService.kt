@@ -12,6 +12,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okio.BufferedSink
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class CloudinaryImageService(
     private val context: Context = FirebaseApp.getInstance().applicationContext
@@ -22,7 +23,12 @@ class CloudinaryImageService(
         private const val UPLOAD_URL = "https://api.cloudinary.com/v1_1/$CLOUD_NAME/image/upload"
     }
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .callTimeout(150, TimeUnit.SECONDS)
+        .build()
 
     suspend fun uploadImage(uri: Uri, publicId: String): String = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
@@ -50,19 +56,23 @@ class CloudinaryImageService(
             .post(body)
             .build()
 
-        client.newCall(request).execute().use { response ->
-            val responseBody = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                val message = runCatching { JSONObject(responseBody).optJSONObject("error")?.optString("message") }
-                    .getOrNull()
-                    ?.takeIf { it.isNotBlank() }
-                    ?: response.message
-                throw IllegalStateException("Cloudinary upload failed (${response.code}): $message")
-            }
+        try {
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    val message = runCatching { JSONObject(responseBody).optJSONObject("error")?.optString("message") }
+                        .getOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: response.message
+                    throw IllegalStateException("Cloudinary upload failed (${response.code}): $message")
+                }
 
-            JSONObject(responseBody).optString("secure_url")
-                .takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException("Cloudinary returned no image URL")
+                JSONObject(responseBody).optString("secure_url")
+                    .takeIf { it.isNotBlank() }
+                    ?: throw IllegalStateException("Cloudinary returned no image URL")
+            }
+        } catch (e: java.net.SocketTimeoutException) {
+            throw IllegalStateException("फोटो अपलोड होने में बहुत समय लग गया। कृपया फिर कोशिश करें।", e)
         }
     }
 }
